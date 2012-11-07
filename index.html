@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Unit Disk Graph+</title>
+	<meta charset="utf-8">
+	<script type="text/javascript" src="js/d3.v2.min.js"></script>
+	<style type="text/css">
+		html, body {
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			padding: 5px;
+		}
+		rect {
+			fill: #fff;
+		}
+
+		.node {
+			fill: #000;
+		}
+		
+		.area {
+			fill: none;
+			stroke: #ed5736;
+		}
+		
+		.cursor {
+			fill: none;
+			stroke: #4D90FE;
+			pointer-events: none;
+		}
+		
+		.link {
+			stroke: #999;
+		}
+	</style>
+</head>
+<body>
+	<h2>Unit Disk Graph+</h2>
+	<div id="graph"></div>
+	<script type="text/javascript">
+		var oo = 2147483647;
+		var w = window.innerWidth,
+			h = window.innerHeight,
+			nodes = [],
+			links = [],
+			cur_pos = [-50, -50],
+			R = 50,
+			nR = R/12,
+			isArea = true,
+			drag = false;
+		
+		var vis = d3.select('#graph').append('svg:svg').attr('width', w).attr('height', h);
+		
+		vis.append('svg:rect').attr('width', w).attr('height',h);
+		
+		var cursor = vis.append('svg:circle')
+						.attr('r', R)
+						.attr('transform', 'translate(-50, -50)')
+						.attr('class', 'cursor'),
+			onMove = cursor;
+						
+		vis.on('mousemove', function() {
+			cur_pos = d3.svg.mouse(this);
+			cursor.attr('transform', 'translate(' + d3.svg.mouse(this) + ')');
+		});
+		
+		// Drag: 
+		// http://bl.ocks.org/1557377
+		d3.select(window).on('keydown', function() {
+			switch (d3.event.keyCode) {
+				case 16: 			// shift
+					if (!drag) {
+						toggleCursor();
+					}
+					break; 
+				case 17: break; // ctrl
+			}
+		});
+		
+		d3.select(window).on('keyup', function() {
+			switch (d3.event.keyCode) {
+				case 16: 			// shift
+					if (drag) {
+						toggleCursor();
+					}
+					break; 
+				case 17: break; // ctrl
+			}
+		});
+		
+		
+		
+		vis.on('mousedown', function() {
+			if (!drag) {
+				var point = d3.svg.mouse(this),
+					node = {x: point[0], y: point[1]};
+				
+				nodes.push(node);
+				
+				nodes.forEach(function(n) {
+					var d = distSQ(n, node);
+					if (0 < d && d < R*R) {
+						links.push({source: n, target: node});
+					}
+				});
+			} else {
+				var min_dist = oo;
+				nodes.forEach(function(n) {
+					if (d
+				});
+			}
+			
+			update();
+		});
+		
+		function distSQ(n1, n2) {
+			return (n1.x-n2.x)*(n1.x-n2.x)+(n1.y-n2.y)*(n1.y-n2.y);
+		}
+		
+		function toggleCursor() {
+			drag = !drag;
+			if (!drag) {
+				cursor = vis.append('svg:circle')
+						.attr('r', R)
+						.attr('transform', 'translate(' + cur_pos + ')')
+						.attr('class', 'cursor');
+			} else {
+				vis.selectAll('circle.cursor').remove();
+			}
+		}
+		
+		function update() {
+			// draw links
+			vis.selectAll('line.link')
+				.data(links)
+				.enter()
+					.insert('svg:line', 'circle.node')
+					.attr('class', 'link')
+					.attr('x1', function(d) { return d.source.x; })
+					.attr('y1', function(d) { return d.source.y; })
+					.attr('x2', function(d) { return d.target.x; })
+					.attr('y2', function(d) { return d.target.y; })
+			
+			// draw nodes
+			vis.selectAll('circle.node')
+				.data(nodes)
+				.enter()
+					.insert('svg:circle', 'circle.cursor')
+					.attr('class', 'node')
+					.attr('cx', function(d) { return d.x; })
+					.attr('cy', function(d) { return d.y; })
+					.attr('r', nR);
+			
+			// draw area
+			if (isArea) {
+				vis.selectAll('circle.area')
+					.data(nodes)
+					.enter()
+						.insert('svg:circle', 'circle.cursor')
+						.attr('class', 'area')
+						.attr('cx', function(d) { return d.x; })
+						.attr('cy', function(d) { return d.y; })
+						.attr('r', R);
+			}
+		}
+	</script>
+</body>
+</html>
