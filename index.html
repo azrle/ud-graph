@@ -22,7 +22,6 @@
 		
 		.area {
 			fill: none;
-			stroke: #ed5736;
 		}
 		
 		.cursor {
@@ -43,8 +42,14 @@
 </head>
 <body>
 	<h2>Unit Disk Graph+</h2>
+	<h4 style="color: #777">CTRL+click to select point in domiant set; Shift+drag to move point;
+		<br />Choose the right doimant set and then you can change size of circles.
+	</h4>
 	<div id="control">
 		<button onclick="start()">Change Size of Circles</button>
+		<button onclick="reset()">Clear All</button>
+		<input type="checkbox" id="circle" value="true">
+		<span>No circles</span>
 	</div>
 	<div id="graph"></div>
 	<script type="text/javascript">
@@ -60,7 +65,7 @@
 			nodes = [],
 			links = [],
 			cur_pos = [-50, -50],
-			R = 80,
+			R = 60,
 			nR = R/12,
 			isArea = true,
 			drag = false,
@@ -101,7 +106,8 @@
 			if (DS.indexOf(i) == -1) {
 				DS.push(i);
 			} else {
-				DS.remove(DS.indexOf(i));
+				if (!begin)
+					DS.remove(DS.indexOf(i));
 			}
 			
 			if (begin && !checkDS()) {
@@ -128,8 +134,6 @@
 			cursor.attr('transform', 'translate(' + cur_pos + ')');
 		});
 		
-		// Drag: 
-		// http://bl.ocks.org/1557377
 		var dragObj = d3.behavior.drag()
 						.origin(Object)
 						.on('drag', dragMove);
@@ -169,7 +173,10 @@
 			}
 		});
 		
-		
+		d3.select("#circle").on("click", function() {
+			isArea = !isArea;
+			update();
+		});
 		
 		vis.on('mousedown', function() {
 			if (!drag && !selected) {
@@ -178,7 +185,7 @@
 				
 				nodes.push(node);
 				
-				if (begin && !checkDS()) nodes.pop();
+				if (begin && (!checkDS() || !checkRule(node))) nodes.pop();
 				
 				update();
 			}
@@ -187,6 +194,20 @@
 		
 		function distSQ(n1, n2) {
 			return (n1.x-n2.x)*(n1.x-n2.x)+(n1.y-n2.y)*(n1.y-n2.y);
+		}
+		
+		function checkRule(n) {
+			var flag = true;
+			nodes.forEach(function (o, i) {
+				if (!flag) return;
+				if (DS.indexOf(i) == -1) {
+					if (0<distSQ(o, n) && distSQ(o, n) < R*R) {
+						flag = false;
+						return;
+					}
+				}
+			});
+			return flag;
 		}
 		
 		function toggleCursor() {
@@ -208,7 +229,7 @@
 			d.x = Math.max(R, Math.min(w - R, d3.event.x));
 			d.y = Math.max(R, Math.min(h - R, d3.event.y));
 			
-			if (begin && !checkDS()){
+			if (  begin && (!checkDS() || (DS.indexOf(d.i)==-1 && !checkRule(d)))  ){
 				d.x = ox;
 				d.y = oy;
 			}
@@ -261,11 +282,9 @@
 									.on('click', function(d) { toggleDS(d.i); });
 			
 			// draw area
-			if (isArea) {
-				points_area.append('svg:circle')
-						.attr('class', 'area')
-						.attr('r', function(d) { return begin?(DS.indexOf(d.i)==-1?0.5*R:1.5*R):R; });
-			}
+			points_area.append('svg:circle')
+					.attr('class', 'area')
+					.attr('r', function(d) { return begin?(DS.indexOf(d.i)==-1?0.5*R:1.5*R):R; });
 			
 			// DS
 			var ds_color = 'orange';
@@ -275,24 +294,41 @@
 				.attr('fill', function(d) { return DS.indexOf(d.i)==-1?'#000':ds_color; });
 				
 			vis.selectAll('circle.area')
-				.attr('r', function(d) { return begin?(DS.indexOf(d.i)==-1?0.5*R:1.5*R):R; });
+				.attr('r', function(d) { return begin?(DS.indexOf(d.i)==-1?0.5*R:1.5*R):R; })
+				.attr('stroke', function(d) { return begin?(DS.indexOf(d.i)==-1?'#aaa':'#9ACD32'):'#ed5736'; })
+				.attr('stroke-width', function(d) { return isArea||(begin && DS.indexOf(d.i)!=-1)?'1px':'0px' });
 		}
 		
 		
 		function reset() {
 			begin = false;
 			nodes = [];
+			cursor.attr('r', R);
 			update();
 		}
 		
 		function start() {
+			if (!checkDS()) return;
 			begin = true;
+			
+			vis.selectAll('g.node').remove();
+			tmp = [];
+			DS.forEach(function(o,i) {
+				nodes[o].i = i;
+				tmp.push(nodes[o]);
+			});
+			nodes = tmp;
+			DS = d3.range(nodes.length);
+			
 			
 			cursor.attr('r', 0.5*R);
 			// change area size
 			vis.selectAll('circle.area')
 				.attr('r', function(d) { return DS.indexOf(d.i)==-1?0.5*R:1.5*R; });
+				
+			update();
 		}
 	</script>
+	<p style="color: #aaa; font-size: 12px; float: right; padding: 20px 3px;">&copy;Azrle 21#</p>
 </body>
 </html>
