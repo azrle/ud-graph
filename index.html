@@ -43,7 +43,7 @@
 <body>
 	<h2>Unit Disk Graph+</h2>
 	<h4 style="color: #777">CTRL+click to select point in domiant set; Shift+drag to move point;
-		<br />Choose the right doimant set and then you can change size of circles.
+		<br />Choose the right connected doimant set (CDS) and then you can change size of circles.
 	</h4>
 	<div id="control">
 		<button onclick="start()">Change Size of Circles</button>
@@ -74,12 +74,27 @@
 			
 		var DS = [];
 		
-		function checkDS() { // check whether it is a dominant set
+		function checkDS() { // check whether it is a CDS
 			var r = true;
 			nodes.forEach(function (n, i) {
 				if (!r) return;
 				
-				if (DS.indexOf(i) != -1) return;
+				if (DS.indexOf(i) != -1) {
+					var con = false;
+					DS.forEach(function(o,j) {
+						if (con) return;
+						if (i==o) return;
+						if (distSQ(nodes[o], nodes[i])<R*R) {
+							con = true;
+							return;
+						}
+					});
+					if (!con) {
+						r = false;
+						return;
+					}
+					return;
+				}
 				
 				var flag = false;
 				DS.forEach(function (j){
