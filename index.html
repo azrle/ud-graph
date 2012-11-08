@@ -13,10 +13,11 @@
 		}
 		rect {
 			fill: #fff;
+			stroke: #ccc;
 		}
 
-		.node {
-			fill: #000;
+		.point {
+			
 		}
 		
 		.area {
@@ -32,23 +33,83 @@
 		
 		.link {
 			stroke: #999;
+			stroke-width: 2px;
+		}
+		
+		#control {
+			margin-bottom: 20px;
 		}
 	</style>
 </head>
 <body>
 	<h2>Unit Disk Graph+</h2>
+	<div id="control">
+		<button onclick="start()">Change Size of Circles</button>
+	</div>
 	<div id="graph"></div>
 	<script type="text/javascript">
+		Array.prototype.remove = function(from, to) {
+			var rest = this.slice((to || from) + 1 || this.length);
+			this.length = from < 0 ? this.length + from : from;
+			return this.push.apply(this, rest);
+		};
+		
 		var oo = 2147483647;
 		var w = window.innerWidth,
 			h = window.innerHeight,
 			nodes = [],
 			links = [],
 			cur_pos = [-50, -50],
-			R = 50,
+			R = 80,
 			nR = R/12,
 			isArea = true,
-			drag = false;
+			drag = false,
+			selected = false,
+			begin = false;
+			
+		var DS = [];
+		
+		function checkDS() { // check whether it is a dominant set
+			var r = true;
+			nodes.forEach(function (n, i) {
+				if (!r) return;
+				
+				if (DS.indexOf(i) != -1) return;
+				
+				var flag = false;
+				DS.forEach(function (j){
+					if (flag) return;
+					if (distSQ(nodes[i], nodes[j]) < R*R) {
+						flag = true;
+						return;
+					}
+				});
+				
+				if (!flag) {
+					r = false;
+					return;
+				}
+			});
+			return r;
+		}
+		
+		function toggleDS(i) {
+			if (!selected) return;
+			
+			var old = DS.slice(0);
+			
+			if (DS.indexOf(i) == -1) {
+				DS.push(i);
+			} else {
+				DS.remove(DS.indexOf(i));
+			}
+			
+			if (begin && !checkDS()) {
+				DS = old;
+			}
+			
+			update();
+		}
 		
 		var vis = d3.select('#graph').append('svg:svg').attr('width', w).attr('height', h);
 		
@@ -62,19 +123,32 @@
 						
 		vis.on('mousemove', function() {
 			cur_pos = d3.svg.mouse(this);
-			cursor.attr('transform', 'translate(' + d3.svg.mouse(this) + ')');
+			cur_pos.x = Math.max(R, Math.min(w - (begin?0.5*R:R), cur_pos.x));
+			cur_pos.y = Math.max(R, Math.min(h - (begin?0.5*R:R), cur_pos.y));
+			cursor.attr('transform', 'translate(' + cur_pos + ')');
 		});
 		
 		// Drag: 
 		// http://bl.ocks.org/1557377
+		var dragObj = d3.behavior.drag()
+						.origin(Object)
+						.on('drag', dragMove);
+		
+		
 		d3.select(window).on('keydown', function() {
 			switch (d3.event.keyCode) {
 				case 16: 			// shift
 					if (!drag) {
+						drag = !drag;
 						toggleCursor();
 					}
 					break; 
-				case 17: break; // ctrl
+				case 17: 
+					if (!selected) {
+						selected = true;
+						toggleCursor();
+					}
+					break; // ctrl
 			}
 		});
 		
@@ -82,47 +156,43 @@
 			switch (d3.event.keyCode) {
 				case 16: 			// shift
 					if (drag) {
+						drag = !drag;
 						toggleCursor();
 					}
 					break; 
-				case 17: break; // ctrl
+				case 17: 
+					if (selected) {
+						selected = false;
+						toggleCursor();
+					}
+					break; // ctrl
 			}
 		});
 		
 		
 		
 		vis.on('mousedown', function() {
-			if (!drag) {
+			if (!drag && !selected) {
 				var point = d3.svg.mouse(this),
-					node = {x: point[0], y: point[1]};
+					node = {x: point[0], y: point[1], i: nodes.length};
 				
 				nodes.push(node);
 				
-				nodes.forEach(function(n) {
-					var d = distSQ(n, node);
-					if (0 < d && d < R*R) {
-						links.push({source: n, target: node});
-					}
-				});
-			} else {
-				var min_dist = oo;
-				nodes.forEach(function(n) {
-					if (d
-				});
+				if (begin && !checkDS()) nodes.pop();
+				
+				update();
 			}
-			
-			update();
 		});
+		
 		
 		function distSQ(n1, n2) {
 			return (n1.x-n2.x)*(n1.x-n2.x)+(n1.y-n2.y)*(n1.y-n2.y);
 		}
 		
 		function toggleCursor() {
-			drag = !drag;
-			if (!drag) {
+			if (!drag && !selected) {
 				cursor = vis.append('svg:circle')
-						.attr('r', R)
+						.attr('r', function () { return begin?0.5*R:R; })
 						.attr('transform', 'translate(' + cur_pos + ')')
 						.attr('class', 'cursor');
 			} else {
@@ -130,39 +200,98 @@
 			}
 		}
 		
+		function dragMove(d) {
+			if (!drag) return false;
+			var ox = d.x,
+				oy = d.y;
+			
+			d.x = Math.max(R, Math.min(w - R, d3.event.x));
+			d.y = Math.max(R, Math.min(h - R, d3.event.y));
+			
+			if (begin && !checkDS()){
+				d.x = ox;
+				d.y = oy;
+			}
+			d3.select(this)
+				.attr('transform', function(d) { return 'translate('+ d.x +',' + d.y + ')';})
+			update();
+		}
+		
+		function computeLinks() {
+			links.length = 0;
+			vis.selectAll('line.link').remove();
+			
+			nodes.forEach(function(n1, i) {
+				nodes.forEach(function(n2, j){
+					if (i<j) {
+						var d = distSQ(n1, n2);
+						if (0 < d && d < R*R) {
+							links.push({source: n1, target: n2});
+						}
+					}
+				});
+			});
+		}
+		
 		function update() {
 			// draw links
-			vis.selectAll('line.link')
-				.data(links)
-				.enter()
-					.insert('svg:line', 'circle.node')
+			computeLinks();
+			
+			var lines = vis.selectAll('line.link').data(links);
+			lines.enter()
+				.insert('svg:line', 'g.node')
 					.attr('class', 'link')
 					.attr('x1', function(d) { return d.source.x; })
 					.attr('y1', function(d) { return d.source.y; })
 					.attr('x2', function(d) { return d.target.x; })
-					.attr('y2', function(d) { return d.target.y; })
+					.attr('y2', function(d) { return d.target.y; });
+			lines.exit().remove();
 			
 			// draw nodes
-			vis.selectAll('circle.node')
-				.data(nodes)
-				.enter()
-					.insert('svg:circle', 'circle.cursor')
-					.attr('class', 'node')
-					.attr('cx', function(d) { return d.x; })
-					.attr('cy', function(d) { return d.y; })
-					.attr('r', nR);
+			var points_area = vis.selectAll('g.node').data(nodes);
+			points_area.exit().remove();
+			
+			points_area = points_area.enter().insert('g')
+											.attr('class', 'node')
+											.attr('transform', function(d) { return 'translate('+ d.x +',' + d.y + ')';});
+			points_area.call(dragObj);
+			var points = points_area.append('svg:circle')
+									.attr('class', 'point')
+									.attr('r', nR)
+									.on('click', function(d) { toggleDS(d.i); });
 			
 			// draw area
 			if (isArea) {
-				vis.selectAll('circle.area')
-					.data(nodes)
-					.enter()
-						.insert('svg:circle', 'circle.cursor')
+				points_area.append('svg:circle')
 						.attr('class', 'area')
-						.attr('cx', function(d) { return d.x; })
-						.attr('cy', function(d) { return d.y; })
-						.attr('r', R);
+						.attr('r', function(d) { return begin?(DS.indexOf(d.i)==-1?0.5*R:1.5*R):R; });
 			}
+			
+			// DS
+			var ds_color = 'orange';
+			if (checkDS()) ds_color = '#9ACD32';
+			
+			vis.selectAll('circle.point')
+				.attr('fill', function(d) { return DS.indexOf(d.i)==-1?'#000':ds_color; });
+				
+			vis.selectAll('circle.area')
+				.attr('r', function(d) { return begin?(DS.indexOf(d.i)==-1?0.5*R:1.5*R):R; });
+		}
+		
+		
+		function reset() {
+			begin = false;
+			nodes = [];
+			update();
+		}
+		
+		function start() {
+			begin = true;
+			
+			cursor.attr('r', 0.5*R);
+			// change area size
+			vis.selectAll('circle.area')
+				.attr('r', function(d) { return DS.indexOf(d.i)==-1?0.5*R:1.5*R; });
 		}
 	</script>
 </body>
