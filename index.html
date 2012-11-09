@@ -47,6 +47,7 @@
 	</h4>
 	<div id="control">
 		<button onclick="start()">Change Size of Circles</button>
+		<button onclick="removeOrigin()" disabled="true" id="rm">Remove Small Circles</button>
 		<button onclick="reset()">Clear All</button>
 		<input type="checkbox" id="circle" value="true">
 		<span>No circles</span>
@@ -323,10 +324,7 @@
 			update();
 		}
 		
-		function start() {
-			if (!checkDS()) return;
-			begin = true;
-			
+		function removeOrigin() {
 			vis.selectAll('g.node').remove();
 			tmp = [];
 			DS.forEach(function(o,i) {
@@ -335,13 +333,21 @@
 			});
 			nodes = tmp;
 			DS = d3.range(nodes.length);
-			
-			
 			cursor.attr('r', 0.5*R);
+			
+			update();
+		}
+		
+		function start() {
+			if (!checkDS()) return;
+			begin = true;
+			
 			// change area size
 			vis.selectAll('circle.area')
 				.attr('r', function(d) { return DS.indexOf(d.i)==-1?0.5*R:1.5*R; });
-				
+			
+			document.getElementById('rm').disabled = false;
+			
 			update();
 		}
 	</script>
