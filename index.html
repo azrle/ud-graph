@@ -42,7 +42,7 @@
 </head>
 <body>
 	<h2>Unit Disk Graph+</h2>
-	<h4 style="color: #777">CTRL+click to select point in domiant set; Shift+drag to move point;
+	<h4 style="color: #777"><b style="color: black">Tips: </b>CTRL+click to select point in domiant set; Shift+drag to move point;
 		<br />Choose the right connected doimant set (CDS) and then you can change size of circles.
 	</h4>
 	<div id="control">
@@ -90,25 +90,26 @@
 							return;
 						}
 					});
+					if (DS.length == 1) con = true;
 					if (!con) {
 						r = false;
 						return;
 					}
-					return;
-				}
-				
-				var flag = false;
-				DS.forEach(function (j){
-					if (flag) return;
-					if (distSQ(nodes[i], nodes[j]) < R*R) {
-						flag = true;
+		
+				} else {					
+					var flag = false;
+					DS.forEach(function (j){
+						if (flag) return;
+						if (distSQ(nodes[i], nodes[j]) < R*R) {
+							flag = true;
+							return;
+						}
+					});
+					
+					if (!flag) {
+						r = false;
 						return;
 					}
-				});
-				
-				if (!flag) {
-					r = false;
-					return;
 				}
 			});
 			return r;
@@ -201,7 +202,8 @@
 				
 				nodes.push(node);
 				
-				if (begin && (!checkDS() || !checkRule(node))) nodes.pop();
+				// if (begin && (!checkDS() || !checkRule(node))) nodes.pop();
+				if (begin && !checkDS()) nodes.pop();
 				
 				update();
 			}
@@ -245,7 +247,8 @@
 			d.x = Math.max(R, Math.min(w - R, d3.event.x));
 			d.y = Math.max(R, Math.min(h - R, d3.event.y));
 			
-			if (  begin && (!checkDS() || (DS.indexOf(d.i)==-1 && !checkRule(d)))  ){
+			// if (  begin && (!checkDS() || (DS.indexOf(d.i)==-1 && !checkRule(d)))  ){
+			if (  begin && (!checkDS())  ){
 				d.x = ox;
 				d.y = oy;
 			}
@@ -272,7 +275,11 @@
 		
 		function update() {
 			// draw links
-			computeLinks();
+			if (!begin) {
+				computeLinks();
+			} else {
+				links.length = 0;
+			}
 			
 			var lines = vis.selectAll('line.link').data(links);
 			lines.enter()
@@ -347,6 +354,8 @@
 				.attr('r', function(d) { return DS.indexOf(d.i)==-1?0.5*R:1.5*R; });
 			
 			document.getElementById('rm').disabled = false;
+			
+			cursor.attr('r', R/2);
 			
 			update();
 		}
